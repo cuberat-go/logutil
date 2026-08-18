@@ -7,14 +7,17 @@
 import "github.com/cuberat-go/logutil"
 ```
 
-logutil is an opinionated logging utility package that provides a structured logging handler for Go's slog package. It allows for logging to a file with support for log levels, attributes, and groups. The package is designed to be used in applications that require structured logging with the ability to dynamically change log levels at runtime.
+logutil is an opinionated logging utility package that provides a structured logging handler for Go's log/slog package. It allows for logging to a file with support for log levels, attributes, and groups. The package is designed to be used in applications that require structured logging with the ability to dynamically change log levels at runtime.
 
-The handler writes log entries to a specified log file in JSON format. The log file is created on the first write. By default, the log level is set to slog.LevelInfo, but it can be overridden in the HandlerOptions. The package also provides a Closer to manage the lifecycle of the log file writer, ensuring that it is closed properly when no longer needed.
+The handler writes log entries to a log file in JSON format. The log file is created on the first write. By default, the log level is set to slog.LevelInfo, but it can be overridden in the HandlerOptions. The package also provides a Closer to manage the lifecycle of the log file writer, ensuring that it is closed properly when no longer needed.
 
 By default, the log file is created under \~/log/ with a name matching the pattern \<program\_name\>.\<timestamp\>.\<pid\>.log. The log file path can be customized by setting the File field in HandlerOptions.
 
+The impetus for writing this module was to make it easy to create a multilogger that writes to stderr, while also writing to a log file when the log level is ERROR or higher \(but only creates the log file if there is at least one error message\). See the NewMultilogger\(\) function for an example of how to create a multilogger. See the examples directory for more examples of how to use this package.
+
 ## Index
 
+- [func NewMultilogger\(\) \(\*slog.Logger, \*slog.LevelVar, io.Closer\)](#NewMultilogger)
 - [type Closer](#Closer)
   - [func \(c \*Closer\) Close\(\) error](#Closer.Close)
 - [type Handler](#Handler)
@@ -25,6 +28,16 @@ By default, the log file is created under \~/log/ with a name matching the patte
   - [func \(h \*Handler\) WithAttrs\(attrs \[\]slog.Attr\) slog.Handler](#Handler.WithAttrs)
   - [func \(h \*Handler\) WithGroup\(name string\) slog.Handler](#Handler.WithGroup)
 - [type HandlerOptions](#HandlerOptions)
+
+<a name="NewMultilogger"></a>
+
+## func NewMultilogger
+
+```go
+func NewMultilogger() (*slog.Logger, *slog.LevelVar, io.Closer)
+```
+
+Returns a new \*slog.Logger that logs stderr if the log level is appropriate. It also writes to a separate error log if the log level is ERROR or higher. The log file is created on the first write. The log level for stderr is set to INFO, but it can be changed at runtime using the returned \*slog.LevelVar. Call Close on the returned io.Closer when the file when the logger is no longer needed to ensure that the log file is properly closed.
 
 <a name="Closer"></a>
 

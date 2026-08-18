@@ -1,8 +1,8 @@
 // logutil is an opinionated logging utility package that provides a structured
-// logging handler for Go's slog package. It allows for logging to a file with
-// support for log levels, attributes, and groups. The package is designed to
-// be used in applications that require structured logging with the ability to
-// dynamically change log levels at runtime.
+// logging handler for Go's log/slog package. It allows for logging to a file
+// with support for log levels, attributes, and groups. The package is
+// designed to be used in applications that require structured logging with
+// the ability to dynamically change log levels at runtime.
 //
 // The handler writes log entries to a log file in JSON format. The log file is
 // created on the first write. By default, the log level is set to
