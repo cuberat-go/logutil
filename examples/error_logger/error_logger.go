@@ -8,7 +8,7 @@ import (
 	// Built-in/core modules.
 	"log/slog"
 
-	// First-party modules.
+	// Third-party modules.
 	"github.com/cuberat-go/logutil"
 )
 

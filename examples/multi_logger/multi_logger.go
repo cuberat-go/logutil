@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"os"
 
-	// First-party modules.
+	// Third-party modules.
 	"github.com/cuberat-go/logutil"
 )
 
