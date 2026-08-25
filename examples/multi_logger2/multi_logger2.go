@@ -1,3 +1,8 @@
+// This program creates a multi logger that writes log messages to both a log
+// file in the ~/log/multi_logger2/ directory (when the log level is ERROR or
+// higher) and to stderr (when the log level is INFO or higher). The error log
+// file is created on the first write. The log file name is generated based on
+// the program name, current timestamp, and process ID.
 package main
 
 import "github.com/cuberat-go/logutil"

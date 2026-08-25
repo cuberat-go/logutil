@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package my_proto_stuff;
+
+option go_package = "github.com/cuberat-go/jsonutil/test/proto_stuff/my_proto_stuff";
+
+message MyProtoStuff {
+	string field1 = 1;
+	int32 field2 = 2;
+}
+
+message ProtoWithOneof {
+	string top_field = 1;
+	oneof test_oneof {
+		string field1 = 2;
+		int32 field2 = 3;
+	}
+}

@@ -1,7 +1,7 @@
 // This program creates an error logger that writes error messages to a log
-// file in the ~/log/ directory. The log file is created on the first write.
-// The log file name is generated based on the program name, current
-// timestamp, and process ID.
+// file in the ~/log/error_logger/ directory. The log file is created on the
+// first write. The log file name is generated based on the program name,
+// current timestamp, and process ID.
 package main
 
 import (

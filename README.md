@@ -18,6 +18,7 @@ The impetus for writing this module was to make it easy to create a multilogger 
 ## Index
 
 - [func NewMultilogger\(\) \(\*slog.Logger, \*slog.LevelVar, io.Closer\)](#NewMultilogger)
+- [func NewMultiloggerWithOptions\(opts \*HandlerOptions\) \(\*slog.Logger, \*slog.LevelVar, io.Closer\)](#NewMultiloggerWithOptions)
 - [type Closer](#Closer)
   - [func \(c \*Closer\) Close\(\) error](#Closer.Close)
 - [type Handler](#Handler)
@@ -31,17 +32,27 @@ The impetus for writing this module was to make it easy to create a multilogger 
 
 <a name="NewMultilogger"></a>
 
-## func NewMultilogger
+## func [NewMultilogger](https://github.com/cuberat-go/logutil/blob/main/logger.go#L16)
 
 ```go
 func NewMultilogger() (*slog.Logger, *slog.LevelVar, io.Closer)
 ```
 
-Returns a new \*slog.Logger that logs stderr if the log level is appropriate. It also writes to a separate error log if the log level is ERROR or higher. The log file is created on the first write. The log level for stderr is set to INFO, but it can be changed at runtime using the returned \*slog.LevelVar. Call Close on the returned io.Closer when the file when the logger is no longer needed to ensure that the log file is properly closed.
+Returns a new \*slog.Logger that logs to stderr. It also writes to a separate error log if the log level is ERROR or higher. The log file is created on the first write. The log level for stderr is set to INFO by default, but it can be changed at runtime using the returned \*slog.LevelVar. Call Close on the returned io.Closer when the file when the logger is no longer needed to ensure that the log file is properly closed.
+
+<a name="NewMultiloggerWithOptions"></a>
+
+## func [NewMultiloggerWithOptions](https://github.com/cuberat-go/logutil/blob/main/logger.go#L34-L36)
+
+```go
+func NewMultiloggerWithOptions(opts *HandlerOptions) (*slog.Logger, *slog.LevelVar, io.Closer)
+```
+
+Returns a new \*slog.Logger that logs to stderr. It also writes to a separate error log if the log level is ERROR or higher. The log file is created on the first write. The log level for stderr is set to INFO by default, but it can be changed at runtime using the returned \*slog.LevelVar. Call Close on the returned io.Closer when the file when the logger is no longer needed to ensure that the log file is properly closed.
 
 <a name="Closer"></a>
 
-## type Closer
+## type [Closer](https://github.com/cuberat-go/logutil/blob/main/handler.go#L21-L24)
 
 Closer is a structure that information used to close the log file writer. It ensures that only one goroutine can close writer \(only one call to Close will actually call Close\(\) on the underlying writer\).
 
@@ -53,7 +64,7 @@ type Closer struct {
 
 <a name="Closer.Close"></a>
 
-### func \(\*Closer\) Close
+### func \(\*Closer\) [Close](https://github.com/cuberat-go/logutil/blob/main/handler.go#L27)
 
 ```go
 func (c *Closer) Close() error
@@ -63,7 +74,7 @@ Closes the writer if it is open. Close is part of the io.Closer interface.
 
 <a name="Handler"></a>
 
-## type Handler
+## type [Handler](https://github.com/cuberat-go/logutil/blob/main/handler.go#L69-L79)
 
 Structure for the log handler that implements slog.Handler interface.
 
@@ -75,7 +86,7 @@ type Handler struct {
 
 <a name="NewErrorHandler"></a>
 
-### func NewErrorHandler
+### func [NewErrorHandler](https://github.com/cuberat-go/logutil/blob/main/handler.go#L92)
 
 ```go
 func NewErrorHandler(opts *HandlerOptions) (*Handler, io.Closer)
@@ -85,7 +96,7 @@ Returns a new Handler with the given options and a Closer for closing the log fi
 
 <a name="NewHandler"></a>
 
-### func NewHandler
+### func [NewHandler](https://github.com/cuberat-go/logutil/blob/main/handler.go#L84)
 
 ```go
 func NewHandler(opts *HandlerOptions) (*Handler, io.Closer)
@@ -95,7 +106,7 @@ Returns a new Handler with the given options and a Closer for closing the log fi
 
 <a name="Handler.Enabled"></a>
 
-### func \(\*Handler\) Enabled
+### func \(\*Handler\) [Enabled](https://github.com/cuberat-go/logutil/blob/main/handler.go#L269)
 
 ```go
 func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool
@@ -105,7 +116,7 @@ Reports whether the handler handles records at the given level. Enable is part o
 
 <a name="Handler.Handle"></a>
 
-### func \(\*Handler\) Handle
+### func \(\*Handler\) [Handle](https://github.com/cuberat-go/logutil/blob/main/handler.go#L163)
 
 ```go
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error
@@ -115,7 +126,7 @@ Formats the log record as a JSON object and writes it to the log file. Handle is
 
 <a name="Handler.WithAttrs"></a>
 
-### func \(\*Handler\) WithAttrs
+### func \(\*Handler\) [WithAttrs](https://github.com/cuberat-go/logutil/blob/main/handler.go#L276)
 
 ```go
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler
@@ -125,7 +136,7 @@ Returns a new Handler whose attributes consist of both the receiver's attributes
 
 <a name="Handler.WithGroup"></a>
 
-### func \(\*Handler\) WithGroup
+### func \(\*Handler\) [WithGroup](https://github.com/cuberat-go/logutil/blob/main/handler.go#L286)
 
 ```go
 func (h *Handler) WithGroup(name string) slog.Handler
@@ -135,7 +146,7 @@ Returns a new Handler with the given group appended to the receiver's existing g
 
 <a name="HandlerOptions"></a>
 
-## type HandlerOptions
+## type [HandlerOptions](https://github.com/cuberat-go/logutil/blob/main/handler.go#L39-L61)
 
 Structure for options to configure the Handler.
 
@@ -148,6 +159,17 @@ type HandlerOptions struct {
     // Log level. Note this is a pointer to a slog.LevelVar, which allows
     // dynamic changes to the log level at runtime.
     LogLevel *slog.LevelVar
+
+    // Function to marshal log records. If nil, the default JSON marshaler from
+    // the builtin JSON package is used. This can be useful when logging
+    // special data, e.g., protobuf messages with oneofs or enums, that
+    // require custom marshaling.
+    MarshalFunc func(any) ([]byte, error)
+
+    // Log directory for log files if a file path is not specified. If empty
+    // (and `File` is not specified), log files are created in a
+    // program-specific directory under ~/log/.
+    TopDir string
     // contains filtered or unexported fields
 }
 ```

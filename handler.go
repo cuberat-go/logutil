@@ -38,7 +38,8 @@ func (c *Closer) Close() error {
 // Structure for options to configure the Handler.
 type HandlerOptions struct {
 	// Top-level directory for log files if a file path is not specified. If
-	// empty, defaults to the user's home directory.
+	// empty, defaults to `log` in the the user's home directory. Used for
+	// testing.
 	topDir string
 
 	// Path to the log file. If empty, a default path is used.
@@ -47,6 +48,17 @@ type HandlerOptions struct {
 	// Log level. Note this is a pointer to a slog.LevelVar, which allows
 	// dynamic changes to the log level at runtime.
 	LogLevel *slog.LevelVar
+
+	// Function to marshal log records. If nil, the default JSON marshaler from
+	// the builtin JSON package is used. This can be useful when logging
+	// special data, e.g., protobuf messages with oneofs or enums, that
+	// require custom marshaling.
+	MarshalFunc func(any) ([]byte, error)
+
+	// Log directory for log files if a file path is not specified. If empty
+	// (and `File` is not specified), log files are created in a
+	// program-specific directory under ~/log/.
+	LogDir string
 }
 
 type groupInfo struct {
@@ -56,14 +68,15 @@ type groupInfo struct {
 
 // Structure for the log handler that implements slog.Handler interface.
 type Handler struct {
-	attrs     []slog.Attr
-	groups    []string
-	mutex     *sync.Mutex
-	createdAt time.Time
-	closer    *Closer
-	options   *HandlerOptions
-	logLevel  *slog.LevelVar
-	groupData []*groupInfo
+	attrs       []slog.Attr
+	groups      []string
+	mutex       *sync.Mutex
+	createdAt   time.Time
+	closer      *Closer
+	options     *HandlerOptions
+	logLevel    *slog.LevelVar
+	groupData   []*groupInfo
+	marshalFunc func(any) ([]byte, error)
 }
 
 // Returns a new Handler with the given options and a Closer for closing the log
@@ -102,21 +115,30 @@ func newHandler(
 ) *Handler {
 	if opts == nil {
 		opts = &HandlerOptions{}
+	} else {
+		optsCopy := &HandlerOptions{}
+		*optsCopy = *opts
+		opts = optsCopy
 	}
 	logLevel := opts.LogLevel
 	if logLevel == nil {
 		logLevel = new(slog.LevelVar)
 		logLevel.Set(slog.LevelInfo)
 	}
+	marshalFunc := opts.MarshalFunc
+	if marshalFunc == nil {
+		marshalFunc = json.Marshal
+	}
 	return &Handler{
-		attrs:     attrs,
-		groups:    groups,
-		mutex:     mutex,
-		createdAt: time.Now(),
-		closer:    &Closer{mutex: &sync.Mutex{}},
-		options:   opts,
-		logLevel:  logLevel,
-		groupData: []*groupInfo{{Name: "data"}},
+		attrs:       attrs,
+		groups:      groups,
+		mutex:       mutex,
+		createdAt:   time.Now(),
+		closer:      &Closer{mutex: &sync.Mutex{}},
+		options:     opts,
+		logLevel:    logLevel,
+		groupData:   []*groupInfo{{Name: "data"}},
+		marshalFunc: marshalFunc,
 	}
 }
 
@@ -132,6 +154,7 @@ func (h *Handler) clone() *Handler {
 	newHandler.closer = h.closer
 	newHandler.logLevel = h.logLevel
 	newHandler.groupData = append([]*groupInfo{}, h.groupData...)
+	newHandler.marshalFunc = h.marshalFunc
 
 	return newHandler
 }
@@ -212,7 +235,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 		lastGroupName = thisGroup.Name
 	}
 
-	dataBytes, err := json.Marshal(groupData)
+	dataBytes, err := h.marshalFunc(groupData)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to marshal log message: %v\n", err)
 		return err
@@ -317,15 +340,20 @@ func (h *Handler) openFile() (io.WriteCloser, error) {
 }
 
 func (h *Handler) openFileDefault() (io.WriteCloser, error) {
-	if h.options != nil && h.options.topDir != "" {
-		return h.openFileBase(h.options.topDir)
+	if h.options != nil {
+		if h.options.topDir != "" {
+			return h.openFileBaseOpinionated(h.options.topDir)
+		}
+		if h.options.LogDir != "" {
+			return h.openFileBase(h.options.LogDir)
+		}
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	return h.openFileBase(home)
+	return h.openFileBaseOpinionated(home)
 }
 
 // Opens an opinionated log file path based on the given top-level directory.
@@ -333,11 +361,20 @@ func (h *Handler) openFileDefault() (io.WriteCloser, error) {
 // directory, and the log file name is generated based on the program name,
 // current timestamp, and process ID. If the log directory does not exist, it
 // is created with appropriate permissions.
-func (h *Handler) openFileBase(
+func (h *Handler) openFileBaseOpinionated(
 	topDir string,
 ) (io.WriteCloser, error) {
 	prog := path.Base(os.Args[0])
 	logDir := path.Join(topDir, "log", prog)
+	return h.openFileBase(logDir)
+}
+
+// Opens a log file in the given directory. The log file name is generated
+// based on the program name, current timestamp, and process ID. If the log
+// directory does not exist, it is created with appropriate permissions.
+func (h *Handler) openFileBase(
+	logDir string,
+) (io.WriteCloser, error) {
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		err := os.MkdirAll(logDir, 0755)
 		if err != nil {
